@@ -651,14 +651,6 @@ public class XCodeBuilder extends Builder {
             	ipaOutputPath = buildDirectory;
             }
 
-            listener.getLogger().println(Messages.XCodeBuilder_cleaningIPA());
-            for (FilePath path : ipaOutputPath.list("*.ipa")) {
-                path.delete();
-            }
-            listener.getLogger().println(Messages.XCodeBuilder_cleaningDSYM());
-            for (FilePath path : ipaOutputPath.list("*-dSYM.zip")) {
-                path.delete();
-            }
             // packaging IPA
             listener.getLogger().println(Messages.XCodeBuilder_packagingIPA());
             List<FilePath> apps = buildDirectory.list(new AppFileFilter());
@@ -711,6 +703,9 @@ public class XCodeBuilder extends Builder {
 
                 String ipaFileName = baseName + ".ipa";
                 FilePath ipaLocation = ipaOutputPath.child(ipaFileName);
+                if (ipaLocation.exists()) {
+                    ipaLocation.delete();
+                }
 
                 FilePath payload = ipaOutputPath.child("Payload");
                 payload.deleteRecursive();
@@ -749,7 +744,12 @@ public class XCodeBuilder extends Builder {
                 // also zip up the symbols, if present
                 FilePath dSYM = app.withSuffix(".dSYM");
                 if (dSYM.exists()) {
-                    returnCode = launcher.launch().envs(envs).stdout(listener).pwd(buildDirectory).cmds("ditto", "-c", "-k", "--keepParent", "-rsrc", dSYM.absolutize().getRemote(), ipaOutputPath.child(baseName + "-dSYM.zip").absolutize().getRemote()).join();
+                    String dSYMZipFileName = baseName + "-dSYM.zip";
+                    FilePath dSYMZipLocation = ipaOutputPath.child(dSYMZipFileName);
+                    if (dSYMZipLocation.exists()) {
+                        dSYMZipLocation.delete();
+                    }
+                    returnCode = launcher.launch().envs(envs).stdout(listener).pwd(buildDirectory).cmds("ditto", "-c", "-k", "--keepParent", "-rsrc", dSYM.absolutize().getRemote(), dSYMZipLocation.absolutize().getRemote()).join();
                     if (returnCode > 0) {
                         listener.getLogger().println(Messages.XCodeBuilder_zipFailed(baseName));
                         return false;
