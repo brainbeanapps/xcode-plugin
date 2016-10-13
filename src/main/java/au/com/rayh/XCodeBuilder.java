@@ -87,10 +87,6 @@ public class XCodeBuilder extends Builder {
      */
     public final String sdk;
     /**
-     * @since 1.1
-     */
-    public final String symRoot;
-    /**
      * @since 1.2
      */
     public final String configurationBuildDir;
@@ -200,7 +196,7 @@ public class XCodeBuilder extends Builder {
     public XCodeBuilder(Boolean buildIpa, Boolean generateArchive, Boolean cleanBeforeBuild, Boolean cleanTestReports, String configuration,
     		String target, String sdk, String xcodeProjectPath, String xcodeProjectFile, String xcodebuildArguments,
     		String embeddedProfileFile, String cfBundleVersionValue, String cfBundleShortVersionStringValue, Boolean unlockKeychain,
-    		String keychainName, String keychainPath, String keychainPwd, String symRoot, String xcodeWorkspaceFile,
+    		String keychainName, String keychainPath, String keychainPwd, String xcodeWorkspaceFile,
     		String xcodeSchema, String configurationBuildDir, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
     		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx,
@@ -227,7 +223,6 @@ public class XCodeBuilder extends Builder {
         this.unlockKeychain = unlockKeychain;
         this.keychainPath = keychainPath;
         this.keychainPwd = keychainPwd;
-        this.symRoot = symRoot;
         this.configurationBuildDir = configurationBuildDir;
         this.allowFailingBuildResults = allowFailingBuildResults;
         this.ipaName = ipaName;
@@ -305,7 +300,6 @@ public class XCodeBuilder extends Builder {
         String configuration = envs.expand(this.configuration);
         String target = envs.expand(this.target);
         String sdk = envs.expand(this.sdk);
-        String symRoot = envs.expand(this.symRoot);
         String configurationBuildDir = envs.expand(this.configurationBuildDir);
         String xcodeProjectPath = envs.expand(this.xcodeProjectPath);
         String xcodeProjectFile = envs.expand(this.xcodeProjectFile);
@@ -367,20 +361,6 @@ public class XCodeBuilder extends Builder {
         FilePath archiveLocation = archivesOutputPath.child(archiveFileName);
         if (archiveLocation.exists()) {
             archiveLocation.deleteRecursive();
-        }
-
-        // Set the build directory and the symRoot
-        //
-        String symRootValue = null;
-        if (!StringUtils.isEmpty(symRoot)) {
-            try {
-                // If not empty we use the Token Expansion to replace it
-                // https://wiki.jenkins-ci.org/display/JENKINS/Token+Macro+Plugin
-                symRootValue = TokenMacro.expandAll(build, listener, symRoot).trim();
-            } catch (MacroEvaluationException e) {
-                listener.error(Messages.XCodeBuilder_symRootMacroError(e.getMessage()));
-                return false;
-            }
         }
 
         String configurationBuildDirValue = null;
@@ -641,13 +621,6 @@ public class XCodeBuilder extends Builder {
             commandLine.add("build");
         }
         //END Bug JENKINS-30362
-
-        if (!StringUtils.isEmpty(symRootValue)) {
-            commandLine.add("SYMROOT=" + symRootValue);
-            xcodeReport.append(", symRoot: ").append(symRootValue);
-        } else {
-            xcodeReport.append(", symRoot: DEFAULT");
-        }
 
         // CONFIGURATION_BUILD_DIR
         if (!StringUtils.isEmpty(configurationBuildDirValue)) {
