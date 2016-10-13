@@ -47,6 +47,12 @@
         </f:entry>
 
 		<f:advanced title="Settings">
+
+		    <f:entry title="${%Artifacts output directory}" field="artifactsOutputDirectory"
+		      description="The output directory for artifacts, relative to workspace directory.">
+		        <f:textbox/>
+		    </f:entry>
+
 		    <f:entry title="${%Clean before build?}" field="cleanBeforeBuild"
 		      description="This will delete the build directories before invoking the build.">
 		        <f:checkbox title="Yes" />
@@ -56,14 +62,23 @@
 		      description="Checking this option will prevent this build step from failing if xcodebuild exits with a non-zero return code.">
 		        <f:checkbox title="Yes" />
 		    </f:entry>
-		    <f:entry title="${%Generate Archive?}" field="generateArchive"
-		    description="Checking this option will generate an xcarchive of the specified scheme. A workspace and scheme are are also needed for archives">
-		    <f:checkbox title="Yes" />
-		    </f:entry>
 
 		    <f:entry title="${%Configuration}" field="configuration"
 		      description="This is the name of the configuration as defined in the Xcode project.">
 		        <f:textbox default="Release"/>
+		    </f:entry>
+
+		    <f:entry>
+		        <f:optionalBlock inline="true" checked="${instance.generateArchive == true}" name="generateArchive" title="${%Generate Archive?}"
+		        description="Checking this option will generate an xcarchive of the specified scheme. A workspace and scheme are are also needed for archives">
+		            <f:entry title="${%.xcarchive name pattern}" field="archiveFileName" description="A pattern for the xcarchive name.">
+		                <f:textbox default="$${JOB_NAME}" />
+		            </f:entry>
+
+		            <f:entry title="${%Output directory}" field="archivesOutputDirectory" description="The output directory for the xcarchive, relative to the artifacts directory.">
+		                <f:textbox />
+		            </f:entry>
+		        </f:optionalBlock>
 		    </f:entry>
 
             <f:entry>
@@ -72,7 +87,7 @@
                         <f:textbox />
                     </f:entry>
 
-                    <f:entry title="${%Output directory}" field="ipaOutputDirectory" description="The output directory for the .ipa file, relative to the build directory.">
+                    <f:entry title="${%Output directory}" field="ipaOutputDirectory" description="The output directory for the .ipa file, relative to the artifacts directory.">
                     	<f:textbox />
                     </f:entry>
 

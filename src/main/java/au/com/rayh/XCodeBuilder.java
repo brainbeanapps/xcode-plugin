@@ -45,6 +45,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 import javax.inject.Inject;
 import java.io.ByteArrayOutputStream;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.text.SimpleDateFormat;
@@ -196,6 +197,10 @@ public class XCodeBuilder extends Builder {
      */
     public final Boolean signIpaOnXcrun;
 
+    public final String artifactsOutputDirectory;
+    public final String archivesOutputDirectory;
+    public final String archiveFileName;
+
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
     public XCodeBuilder(Boolean buildIpa, Boolean generateArchive, Boolean cleanBeforeBuild, Boolean cleanTestReports, String configuration,
@@ -204,7 +209,8 @@ public class XCodeBuilder extends Builder {
     		String keychainName, String keychainPath, String keychainPwd, String symRoot, String xcodeWorkspaceFile,
     		String xcodeSchema, String configurationBuildDir, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
-    		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx, Boolean signIpaOnXcrun) {
+    		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx, Boolean signIpaOnXcrun,
+            String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName) {
 
         this.buildIpa = buildIpa;
         this.generateArchive = generateArchive;
@@ -238,6 +244,9 @@ public class XCodeBuilder extends Builder {
         this.interpretTargetAsRegEx = interpretTargetAsRegEx;
         this.ipaManifestPlistUrl = ipaManifestPlistUrl;
         this.signIpaOnXcrun = signIpaOnXcrun;
+        this.artifactsOutputDirectory = artifactsOutputDirectory;
+        this.archivesOutputDirectory = archivesOutputDirectory;
+        this.archiveFileName = archiveFileName;
     }
 
     @SuppressWarnings("unused")
@@ -249,6 +258,35 @@ public class XCodeBuilder extends Builder {
             }
         }
         return this;
+    }
+
+    private FilePath resolvePath(String directory, FilePath defaultPath) throws IOException, InterruptedException {
+        return resolvePath(directory, defaultPath, true);
+    }
+ 
+    private FilePath resolvePath(String directory, FilePath defaultPath, boolean autoCreate) throws IOException, InterruptedException {
+        if (directory == null || StringUtils.isEmpty(directory)) {
+            return defaultPath;
+        }
+
+        FilePath path = defaultPath.child(directory);
+        if (autoCreate && !path.exists()) {
+            path.mkdirs();
+        }
+
+        return path;
+    }
+
+    private List<FilePath> listRecursive(FilePath path, final FileFilter filter) throws IOException, InterruptedException {
+        List<FilePath> list = new ArrayList<FilePath>();
+
+        list.addAll(path.list(filter));
+
+        for (FilePath subdirectory : path.listDirectories()) {
+            list.addAll(listRecursive(subdirectory, filter));
+        }
+
+        return list;
     }
 
     @Override
@@ -287,6 +325,9 @@ public class XCodeBuilder extends Builder {
         String bundleID = envs.expand(this.bundleID);
         String bundleIDInfoPlistPath = envs.expand(this.bundleIDInfoPlistPath);
         String ipaManifestPlistUrl = envs.expand(this.ipaManifestPlistUrl);
+        String artifactsOutputDirectory = envs.expand(this.artifactsOutputDirectory);
+        String archivesOutputDirectory = envs.expand(this.archivesOutputDirectory);
+        String archiveFileName = envs.expand(this.archiveFileName);
         // End expanding all string variables in parameters  
 
         // Set the working directory
@@ -304,6 +345,32 @@ public class XCodeBuilder extends Builder {
             }
         }
 
+        // Normalize xcodeProjectFile
+        if (!StringUtils.isEmpty(xcodeProjectFile) && !xcodeProjectFile.endsWith(".xcodeproj"))
+            xcodeProjectFile = xcodeProjectFile + ".xcodeproj";
+
+        // Normalize xcodeWorkspaceFile
+        if (!StringUtils.isEmpty(xcodeWorkspaceFile) && !xcodeWorkspaceFile.endsWith(".xcworkspace"))
+            xcodeWorkspaceFile = xcodeWorkspaceFile + ".xcworkspace";
+
+        // Artifacts output path
+        FilePath artifactsOutputPath = resolvePath(artifactsOutputDirectory, projectRoot);
+
+        // XCode archive name
+        if (archiveFileName == null || StringUtils.isEmpty(archiveFileName))
+            archiveFileName = "${JOB_NAME}";
+        archiveFileName = envs.expand(archiveFileName);
+        if (!archiveFileName.endsWith(".xcarchive")) {
+            archiveFileName = archiveFileName + ".xcarchive";
+        }
+
+        // XCode archive location
+        FilePath archivesOutputPath = resolvePath(archivesOutputDirectory, artifactsOutputPath);
+        FilePath archiveLocation = archivesOutputPath.child(archiveFileName);
+        if (archiveLocation.exists()) {
+            archiveLocation.deleteRecursive();
+        }
+
         // Set the build directory and the symRoot
         //
         String symRootValue = null;
@@ -319,7 +386,6 @@ public class XCodeBuilder extends Builder {
         }
 
         String configurationBuildDirValue = null;
-        FilePath buildDirectory;
         if (!StringUtils.isEmpty(configurationBuildDir)) {
             try {
                 configurationBuildDirValue = TokenMacro.expandAll(build, listener, configurationBuildDir).trim();
@@ -327,17 +393,6 @@ public class XCodeBuilder extends Builder {
                 listener.error(Messages.XCodeBuilder_configurationBuildDirMacroError(e.getMessage()));
                 return false;
             }
-        }
-
-        if (configurationBuildDirValue != null) {
-            // If there is a CONFIGURATION_BUILD_DIR, that overrides any use of SYMROOT. Does not require the build platform and the configuration.
-            buildDirectory = new FilePath(projectRoot.getChannel(), configurationBuildDirValue);
-        } else if (symRootValue != null) {
-            // If there is a SYMROOT specified, compute the build directory from that.
-            buildDirectory = new FilePath(projectRoot.getChannel(), symRootValue).child(configuration + "-" + buildPlatform);
-        } else {
-            // Assume its a build for the handset, not the simulator.
-            buildDirectory = projectRoot.child("build").child(configuration + "-" + buildPlatform);
         }
 
         // XCode Version
@@ -433,12 +488,6 @@ public class XCodeBuilder extends Builder {
         listener.getLogger().println(Messages.XCodeBuilder_CFBundleShortVersionStringUsed(cfBundleShortVersionString));
         listener.getLogger().println(Messages.XCodeBuilder_CFBundleVersionUsed(cfBundleVersion));
 
-        // Clean build directories
-        if (cleanBeforeBuild) {
-            listener.getLogger().println(Messages.XCodeBuilder_cleaningBuildDir(buildDirectory.absolutize().getRemote()));
-            buildDirectory.deleteRecursive();
-        }
-
         // remove test-reports and *.ipa
         if (cleanTestReports != null && cleanTestReports) {
             listener.getLogger().println(Messages.XCodeBuilder_cleaningTestReportsDir(projectRoot.child("test-reports").absolutize().getRemote()));
@@ -493,7 +542,7 @@ public class XCodeBuilder extends Builder {
             listener.getLogger().println(Messages.XCodeBuilder_DebugInfoAvailableSchemes());
             if (!StringUtils.isEmpty(xcodeWorkspaceFile)) {
                 commandLine.add("-workspace");
-                commandLine.add(xcodeWorkspaceFile + ".xcworkspace");
+                commandLine.add(xcodeWorkspaceFile);
             } else if (!StringUtils.isEmpty(xcodeProjectFile)) {
                 commandLine.add("-project");
                 commandLine.add(xcodeProjectFile);
@@ -558,7 +607,7 @@ public class XCodeBuilder extends Builder {
         // Prioritizing workspace over project setting
         if (!StringUtils.isEmpty(xcodeWorkspaceFile)) {
             commandLine.add("-workspace");
-            commandLine.add(xcodeWorkspaceFile + ".xcworkspace");
+            commandLine.add(xcodeWorkspaceFile);
             xcodeReport.append(", workspace: ").append(xcodeWorkspaceFile);
         } else if (!StringUtils.isEmpty(xcodeProjectFile)) {
             commandLine.add("-project");
@@ -584,8 +633,10 @@ public class XCodeBuilder extends Builder {
         //Bug JENKINS-30362
         //Generating an archive builds the project twice
         //commandLine.add("build");
-        if(generateArchive != null && generateArchive){
+        if((generateArchive != null && generateArchive) || (buildIpa != null && buildIpa)) {
             commandLine.add("archive");
+            commandLine.add("-archivePath");
+            commandLine.add(archiveLocation.absolutize().getRemote());
             xcodeReport.append(", archive:YES");
         }else{
             xcodeReport.append(", archive:NO");
@@ -631,32 +682,20 @@ public class XCodeBuilder extends Builder {
         // Package IPA
         if (buildIpa) {
 
-            if (!buildDirectory.exists() || !buildDirectory.isDirectory()) {
-                listener.fatalError(Messages.XCodeBuilder_NotExistingBuildDirectory(buildDirectory.absolutize().getRemote()));
+            if (!archiveLocation.exists() || !archiveLocation.isDirectory()) {
+                listener.fatalError(Messages.XCodeBuilder_NotExistingArchiveDirectory(archiveLocation.absolutize().getRemote()));
                 return false;
             }
 
-            // clean IPA
-            FilePath ipaOutputPath = null;
-            if (ipaOutputDirectory != null && ! StringUtils.isEmpty(ipaOutputDirectory)) {
-            	ipaOutputPath = buildDirectory.child(ipaOutputDirectory);
-
-            	// Create if non-existent
-            	if (! ipaOutputPath.exists()) {
-            		ipaOutputPath.mkdirs();
-            	}
-            }
-
-            if (ipaOutputPath == null) {
-            	ipaOutputPath = buildDirectory;
-            }
+            // Determine output path for IPA
+            FilePath ipaOutputPath = resolvePath(ipaOutputDirectory, artifactsOutputPath);
 
             // packaging IPA
             listener.getLogger().println(Messages.XCodeBuilder_packagingIPA());
-            List<FilePath> apps = buildDirectory.list(new AppFileFilter());
+            List<FilePath> apps = listRecursive(archiveLocation, new AppFileFilter());
             // FilePath is based on File.listFiles() which can randomly fail | http://stackoverflow.com/questions/3228147/retrieving-the-underlying-error-when-file-listfiles-return-null
             if (apps == null) {
-                listener.fatalError(Messages.XCodeBuilder_NoAppsInBuildDirectory(buildDirectory.absolutize().getRemote()));
+                listener.fatalError(Messages.XCodeBuilder_NoAppsInArchiveDirectory(archiveLocation.absolutize().getRemote()));
                 return false;
             }
 
@@ -707,49 +746,45 @@ public class XCodeBuilder extends Builder {
                     ipaLocation.delete();
                 }
 
-                FilePath payload = ipaOutputPath.child("Payload");
-                payload.deleteRecursive();
-                payload.mkdirs();
-
                 listener.getLogger().println("Packaging " + app.getBaseName() + ".app => " + ipaLocation.absolutize().getRemote());
                 if (buildPlatform.contains("simulator")) {
                     listener.getLogger().println(Messages.XCodeBuilder_warningPackagingIPAForSimulatorSDK(sdk));
                 }
 
-                List<String> packageCommandLine = new ArrayList<String>();
-                packageCommandLine.add(getGlobalConfiguration().getXcrunPath());
-                packageCommandLine.add("-sdk");
+                List<String> exportCommandLine = new ArrayList<String>();
+                exportCommandLine.add(getGlobalConfiguration().getXcodebuildPath());
+                exportCommandLine.add("-exportArchive");
 
-                if (!StringUtils.isEmpty(sdk)) {
-                    packageCommandLine.add(sdk);
-                } else {
-                    packageCommandLine.add(buildPlatform);
-                }
-                packageCommandLine.addAll(Lists.newArrayList("PackageApplication", "-v", app.absolutize().getRemote(), "-o", ipaLocation.absolutize().getRemote()));
+                exportCommandLine.add("-archivePath");
+                exportCommandLine.add(archiveLocation.absolutize().getRemote());
+
+                exportCommandLine.add("-exportPath");
+                exportCommandLine.add(ipaLocation.absolutize().getRemote());
+
                 if (!StringUtils.isEmpty(embeddedProfileFile)) {
-                    packageCommandLine.add("--embed");
-                    packageCommandLine.add(embeddedProfileFile);
+                    exportCommandLine.add("-exportProvisioningProfile");
+                    exportCommandLine.add(embeddedProfileFile);//TODO: this won't work, we need name of profile
                 }
                 if (!StringUtils.isEmpty(codeSigningIdentity) && signIpaOnXcrun) {
-                    packageCommandLine.add("--sign");
-                    packageCommandLine.add(codeSigningIdentity);
+                    exportCommandLine.add("-exportSigningIdentity");
+                    exportCommandLine.add(codeSigningIdentity);
                 }
 
-                returnCode = launcher.launch().envs(envs).stdout(listener).pwd(projectRoot).cmds(packageCommandLine).join();
+                returnCode = launcher.launch().envs(envs).stdout(listener).pwd(projectRoot).cmds(exportCommandLine).join();
                 if (returnCode > 0) {
                     listener.getLogger().println("Failed to build " + ipaLocation.absolutize().getRemote());
                     return false;
                 }
 
                 // also zip up the symbols, if present
-                FilePath dSYM = app.withSuffix(".dSYM");
-                if (dSYM.exists()) {
+                FilePath dSYMLocation = archiveLocation.child("dSYMs").child(app.getName() + ".dSYM");
+                if (dSYMLocation.exists()) {
                     String dSYMZipFileName = baseName + "-dSYM.zip";
                     FilePath dSYMZipLocation = ipaOutputPath.child(dSYMZipFileName);
                     if (dSYMZipLocation.exists()) {
                         dSYMZipLocation.delete();
                     }
-                    returnCode = launcher.launch().envs(envs).stdout(listener).pwd(buildDirectory).cmds("ditto", "-c", "-k", "--keepParent", "-rsrc", dSYM.absolutize().getRemote(), dSYMZipLocation.absolutize().getRemote()).join();
+                    returnCode = launcher.launch().envs(envs).stdout(listener).pwd(projectRoot).cmds("ditto", "-c", "-k", "--keepParent", "-rsrc", dSYMLocation.absolutize().getRemote(), dSYMZipLocation.absolutize().getRemote()).join();
                     if (returnCode > 0) {
                         listener.getLogger().println(Messages.XCodeBuilder_zipFailed(baseName));
                         return false;
@@ -784,7 +819,6 @@ public class XCodeBuilder extends Builder {
 
                     ipaManifestLocation.write(manifest, "UTF-8");
                 }
-                payload.deleteRecursive();
             }
         }
 
