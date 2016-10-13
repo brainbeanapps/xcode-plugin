@@ -87,10 +87,6 @@ public class XCodeBuilder extends Builder {
      */
     public final String sdk;
     /**
-     * @since 1.2
-     */
-    public final String configurationBuildDir;
-    /**
      * @since 1.0
      */
     public final String xcodeProjectPath;
@@ -197,7 +193,7 @@ public class XCodeBuilder extends Builder {
     		String target, String sdk, String xcodeProjectPath, String xcodeProjectFile, String xcodebuildArguments,
     		String embeddedProfileFile, String cfBundleVersionValue, String cfBundleShortVersionStringValue, Boolean unlockKeychain,
     		String keychainName, String keychainPath, String keychainPwd, String xcodeWorkspaceFile,
-    		String xcodeSchema, String configurationBuildDir, String codeSigningIdentity, Boolean allowFailingBuildResults,
+    		String xcodeSchema, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
     		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx,
             String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName,
@@ -223,7 +219,6 @@ public class XCodeBuilder extends Builder {
         this.unlockKeychain = unlockKeychain;
         this.keychainPath = keychainPath;
         this.keychainPwd = keychainPwd;
-        this.configurationBuildDir = configurationBuildDir;
         this.allowFailingBuildResults = allowFailingBuildResults;
         this.ipaName = ipaName;
         this.ipaOutputDirectory = ipaOutputDirectory;
@@ -300,7 +295,6 @@ public class XCodeBuilder extends Builder {
         String configuration = envs.expand(this.configuration);
         String target = envs.expand(this.target);
         String sdk = envs.expand(this.sdk);
-        String configurationBuildDir = envs.expand(this.configurationBuildDir);
         String xcodeProjectPath = envs.expand(this.xcodeProjectPath);
         String xcodeProjectFile = envs.expand(this.xcodeProjectFile);
         String xcodebuildArguments = envs.expand(this.xcodebuildArguments);
@@ -361,16 +355,6 @@ public class XCodeBuilder extends Builder {
         FilePath archiveLocation = archivesOutputPath.child(archiveFileName);
         if (archiveLocation.exists()) {
             archiveLocation.deleteRecursive();
-        }
-
-        String configurationBuildDirValue = null;
-        if (!StringUtils.isEmpty(configurationBuildDir)) {
-            try {
-                configurationBuildDirValue = TokenMacro.expandAll(build, listener, configurationBuildDir).trim();
-            } catch (MacroEvaluationException e) {
-                listener.error(Messages.XCodeBuilder_configurationBuildDirMacroError(e.getMessage()));
-                return false;
-            }
         }
 
         // XCode Version
@@ -621,14 +605,6 @@ public class XCodeBuilder extends Builder {
             commandLine.add("build");
         }
         //END Bug JENKINS-30362
-
-        // CONFIGURATION_BUILD_DIR
-        if (!StringUtils.isEmpty(configurationBuildDirValue)) {
-            commandLine.add("CONFIGURATION_BUILD_DIR=" + configurationBuildDirValue);
-            xcodeReport.append(", configurationBuildDir: ").append(configurationBuildDirValue);
-        } else {
-            xcodeReport.append(", configurationBuildDir: DEFAULT");
-        }
 
         // handle code signing identities
         if (!StringUtils.isEmpty(codeSigningIdentity)) {

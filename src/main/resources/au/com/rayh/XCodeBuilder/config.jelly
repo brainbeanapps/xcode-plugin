@@ -220,11 +220,6 @@
 		        <f:textbox />
 		    </f:entry>
 
-		    <f:entry title="${%Build output directory}" field="configurationBuildDir"
-		         description="The value to use for CONFIGURATION_BUILD_DIR setting.">
-		           <f:textbox/>
-		    </f:entry>
-
 		</f:advanced>
 
 	</f:section>
