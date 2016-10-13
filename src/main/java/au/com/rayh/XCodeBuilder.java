@@ -189,14 +189,6 @@ public class XCodeBuilder extends Builder {
      */
     public final String ipaManifestPlistUrl;
 
-    /**
-     * This is a work around for the broken Apple script as documented here:
-     http://stackoverflow.com/questions/32504355/error-itms-90339-this-bundle-is-invalid-the-info-plist-contains-an-invalid-ke
-     http://stackoverflow.com/questions/32763288/ios-builds-ipa-creation-no-longer-works-from-the-command-line/32845990#32845990
-     http://cutting.io/posts/packaging-ios-apps-from-the-command-line/
-     */
-    public final Boolean signIpaOnXcrun;
-
     public final String artifactsOutputDirectory;
     public final String archivesOutputDirectory;
     public final String archiveFileName;
@@ -211,7 +203,7 @@ public class XCodeBuilder extends Builder {
     		String keychainName, String keychainPath, String keychainPwd, String symRoot, String xcodeWorkspaceFile,
     		String xcodeSchema, String configurationBuildDir, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
-    		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx, Boolean signIpaOnXcrun,
+    		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx,
             String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName,
             String exportSigningIdentity, String exportProvisioningProfile) {
 
@@ -246,7 +238,6 @@ public class XCodeBuilder extends Builder {
         this.bundleIDInfoPlistPath = bundleIDInfoPlistPath;
         this.interpretTargetAsRegEx = interpretTargetAsRegEx;
         this.ipaManifestPlistUrl = ipaManifestPlistUrl;
-        this.signIpaOnXcrun = signIpaOnXcrun;
         this.artifactsOutputDirectory = artifactsOutputDirectory;
         this.archivesOutputDirectory = archivesOutputDirectory;
         this.archiveFileName = archiveFileName;

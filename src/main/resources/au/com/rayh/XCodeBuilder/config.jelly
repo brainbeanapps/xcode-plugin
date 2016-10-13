@@ -136,11 +136,6 @@
 		        <f:textbox />
 		    </f:entry>
 
-        <f:entry title="${%Sign IPA at build time}" field="signIpaOnXcrun"
-          description="Enable xcrun to sign the IPA at build time">
-            <f:checkbox default="true" />
-        </f:entry>
-
 		    <f:entry title="${%Embedded Profile}" field="embeddedProfileFile"
 		      description="The relative path to the mobileprovision to embed, leave blank for no embedded profile">
 		        <f:textbox />
