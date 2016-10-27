@@ -125,11 +125,6 @@
 		        <f:textbox />
 		    </f:entry>
 
-		    <f:entry title="${%Embedded Profile}" field="embeddedProfileFile"
-		      description="The relative path to the mobileprovision to embed, leave blank for no embedded profile">
-		        <f:textbox />
-		    </f:entry>
-
 		    <j:set var="UUID" value="${descriptor.UUID}" />
 
             <f:entry>

@@ -109,10 +109,6 @@ public class XCodeBuilder extends Builder {
     /**
      * @since 1.0
      */
-    public final String embeddedProfileFile;
-    /**
-     * @since 1.0
-     */
     public final String cfBundleVersionValue;
     /**
      * @since 1.0
@@ -189,7 +185,7 @@ public class XCodeBuilder extends Builder {
     @DataBoundConstructor
     public XCodeBuilder(Boolean buildIpa, Boolean generateArchive, Boolean cleanBeforeBuild, Boolean cleanTestReports, String configuration,
     		String target, String sdk, String xcodeProjectPath, String xcodeProjectFile, String xcodebuildArguments,
-    		String embeddedProfileFile, String cfBundleVersionValue, String cfBundleShortVersionStringValue, Boolean unlockKeychain,
+    		String cfBundleVersionValue, String cfBundleShortVersionStringValue, Boolean unlockKeychain,
     		String keychainName, String keychainPath, String keychainPwd, String xcodeWorkspaceFile,
     		String xcodeSchema, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
@@ -209,7 +205,6 @@ public class XCodeBuilder extends Builder {
         this.keychainName = keychainName;
         this.xcodeWorkspaceFile = xcodeWorkspaceFile;
         this.xcodeSchema = xcodeSchema;
-        this.embeddedProfileFile = embeddedProfileFile;
         this.codeSigningIdentity = codeSigningIdentity;
         this.cfBundleVersionValue = cfBundleVersionValue;
         this.cfBundleShortVersionStringValue = cfBundleShortVersionStringValue;
@@ -295,7 +290,6 @@ public class XCodeBuilder extends Builder {
         String xcodebuildArguments = envs.expand(this.xcodebuildArguments);
         String xcodeSchema = envs.expand(this.xcodeSchema);
         String xcodeWorkspaceFile = envs.expand(this.xcodeWorkspaceFile);
-        String embeddedProfileFile = envs.expand(this.embeddedProfileFile);
         String cfBundleVersionValue = envs.expand(this.cfBundleVersionValue);
         String cfBundleShortVersionStringValue = envs.expand(this.cfBundleShortVersionStringValue);
         String codeSigningIdentity = envs.expand(this.codeSigningIdentity);
