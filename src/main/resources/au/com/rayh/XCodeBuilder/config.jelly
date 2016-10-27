@@ -91,17 +91,6 @@
                     	<f:textbox />
                     </f:entry>
 
-                    <f:entry title="${%Export Signing Identity}" field="exportSigningIdentity"
-                      description="Specifies the application signing identity that should be used when exporting the archive, leave empty for default.">
-                        <f:textbox />
-                    </f:entry>
-
-                    <f:entry title="${%Export Provisioning Profile}" field="exportProvisioningProfile"
-                      description="Specifies the provisioning profile that should be used when exporting the archive, leave empty for default.">
-                        <f:textbox />
-                    </f:entry>
-
-
                     <f:entry title="${%Manifest Plist URL}" field="ipaManifestPlistUrl" description="The base URL to use to create a Manifest Plist. If omitted no Manifest Plist will be generated">
                         <f:textbox />
                     </f:entry>

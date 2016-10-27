@@ -184,8 +184,6 @@ public class XCodeBuilder extends Builder {
     public final String artifactsOutputDirectory;
     public final String archivesOutputDirectory;
     public final String archiveFileName;
-    public final String exportSigningIdentity;
-    public final String exportProvisioningProfile;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
@@ -196,8 +194,7 @@ public class XCodeBuilder extends Builder {
     		String xcodeSchema, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
     		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx,
-            String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName,
-            String exportSigningIdentity, String exportProvisioningProfile) {
+            String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName) {
 
         this.buildIpa = buildIpa;
         this.generateArchive = generateArchive;
@@ -231,8 +228,6 @@ public class XCodeBuilder extends Builder {
         this.artifactsOutputDirectory = artifactsOutputDirectory;
         this.archivesOutputDirectory = archivesOutputDirectory;
         this.archiveFileName = archiveFileName;
-        this.exportSigningIdentity = exportSigningIdentity;
-        this.exportProvisioningProfile = exportProvisioningProfile;
     }
 
     @SuppressWarnings("unused")
@@ -312,8 +307,6 @@ public class XCodeBuilder extends Builder {
         String artifactsOutputDirectory = envs.expand(this.artifactsOutputDirectory);
         String archivesOutputDirectory = envs.expand(this.archivesOutputDirectory);
         String archiveFileName = envs.expand(this.archiveFileName);
-        String exportSigningIdentity = envs.expand(this.exportSigningIdentity);
-        String exportProvisioningProfile = envs.expand(this.exportProvisioningProfile);
         // End expanding all string variables in parameters  
 
         // Set the working directory
@@ -707,15 +700,6 @@ public class XCodeBuilder extends Builder {
 
                 exportCommandLine.add("-exportPath");
                 exportCommandLine.add(ipaLocation.absolutize().getRemote());
-
-                if (!StringUtils.isEmpty(exportProvisioningProfile)) {
-                    exportCommandLine.add("-exportProvisioningProfile");
-                    exportCommandLine.add(exportProvisioningProfile);
-                }
-                if (!StringUtils.isEmpty(exportSigningIdentity)) {
-                    exportCommandLine.add("-exportSigningIdentity");
-                    exportCommandLine.add(exportSigningIdentity);
-                }
 
                 returnCode = launcher.launch().envs(envs).stdout(listener).pwd(projectRoot).cmds(exportCommandLine).join();
                 if (returnCode > 0) {
