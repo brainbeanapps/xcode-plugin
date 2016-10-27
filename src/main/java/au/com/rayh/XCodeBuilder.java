@@ -180,6 +180,8 @@ public class XCodeBuilder extends Builder {
     public final String artifactsOutputDirectory;
     public final String archivesOutputDirectory;
     public final String archiveFileName;
+    public final String exportTeamId;
+    public final String exportMethod;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
@@ -190,7 +192,8 @@ public class XCodeBuilder extends Builder {
     		String xcodeSchema, String codeSigningIdentity, Boolean allowFailingBuildResults,
     		String ipaName, Boolean provideApplicationVersion, String ipaOutputDirectory, Boolean changeBundleID, String bundleID,
     		String bundleIDInfoPlistPath, String ipaManifestPlistUrl, Boolean interpretTargetAsRegEx,
-            String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName) {
+            String artifactsOutputDirectory, String archivesOutputDirectory, String archiveFileName,
+            String exportTeamId, String exportMethod) {
 
         this.buildIpa = buildIpa;
         this.generateArchive = generateArchive;
@@ -223,6 +226,8 @@ public class XCodeBuilder extends Builder {
         this.artifactsOutputDirectory = artifactsOutputDirectory;
         this.archivesOutputDirectory = archivesOutputDirectory;
         this.archiveFileName = archiveFileName;
+        this.exportTeamId = exportTeamId;
+        this.exportMethod = exportMethod;
     }
 
     @SuppressWarnings("unused")
@@ -301,6 +306,8 @@ public class XCodeBuilder extends Builder {
         String artifactsOutputDirectory = envs.expand(this.artifactsOutputDirectory);
         String archivesOutputDirectory = envs.expand(this.archivesOutputDirectory);
         String archiveFileName = envs.expand(this.archiveFileName);
+        String exportTeamId = envs.expand(this.exportTeamId);
+        String exportMethod = envs.expand(this.exportMethod);
         // End expanding all string variables in parameters  
 
         // Set the working directory
@@ -624,6 +631,24 @@ public class XCodeBuilder extends Builder {
             // Determine output path for IPA
             FilePath ipaOutputPath = resolvePath(ipaOutputDirectory, artifactsOutputPath);
 
+            // Export archive options
+            StringBuilder exportArchiveOptionsBuilder = new StringBuilder();
+            exportArchiveOptionsBuilder.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+            exportArchiveOptionsBuilder.append("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n");
+            exportArchiveOptionsBuilder.append("<plist version=\"1.0\">\n");
+            exportArchiveOptionsBuilder.append("<dict>\n");
+            if (exportTeamId != null && !exportTeamId.isEmpty()) {
+                exportArchiveOptionsBuilder.append("<key>teamID</key>\n");
+                exportArchiveOptionsBuilder.append("<string>" + exportTeamId + "</string>\n");
+            }
+            if (exportMethod != null && !exportMethod.isEmpty()) {
+                exportArchiveOptionsBuilder.append("<key>method</key>\n");
+                exportArchiveOptionsBuilder.append("<string>" + exportMethod + "</string>\n");
+            }
+            exportArchiveOptionsBuilder.append("</dict>\n");
+            exportArchiveOptionsBuilder.append("</plist>\n");
+            FilePath exportArchiveOptionsPlist = ipaOutputPath.createTextTempFile("exportOptions", "plist", exportArchiveOptionsBuilder.toString());
+
             // packaging IPA
             listener.getLogger().println(Messages.XCodeBuilder_packagingIPA());
             List<FilePath> apps = listRecursive(archiveLocation, new AppFileFilter());
@@ -685,6 +710,9 @@ public class XCodeBuilder extends Builder {
                     listener.getLogger().println(Messages.XCodeBuilder_warningPackagingIPAForSimulatorSDK(sdk));
                 }
 
+                // Temporary output path for IPA
+                FilePath tempIpaOutputPath = artifactsOutputPath.createTempDir(baseName, ".exportPath");
+
                 List<String> exportCommandLine = new ArrayList<String>();
                 exportCommandLine.add(getGlobalConfiguration().getXcodebuildPath());
                 exportCommandLine.add("-exportArchive");
@@ -693,13 +721,20 @@ public class XCodeBuilder extends Builder {
                 exportCommandLine.add(archiveLocation.absolutize().getRemote());
 
                 exportCommandLine.add("-exportPath");
-                exportCommandLine.add(ipaLocation.absolutize().getRemote());
+                exportCommandLine.add(tempIpaOutputPath.absolutize().getRemote());
+
+                exportCommandLine.add("-exportOptionsPlist");
+                exportCommandLine.add(exportArchiveOptionsPlist.absolutize().getRemote());
 
                 returnCode = launcher.launch().envs(envs).stdout(listener).pwd(projectRoot).cmds(exportCommandLine).join();
                 if (returnCode > 0) {
                     listener.getLogger().println("Failed to build " + ipaLocation.absolutize().getRemote());
                     return false;
                 }
+
+                // Move IPA to proper location and cleanup
+                tempIpaOutputPath.list(new AnyFileFilter()).get(0).copyTo(ipaLocation);
+                tempIpaOutputPath.deleteRecursive();
 
                 // also zip up the symbols, if present
                 FilePath dSYMLocation = archiveLocation.child("dSYMs").child(app.getName() + ".dSYM");
@@ -745,6 +780,9 @@ public class XCodeBuilder extends Builder {
                     ipaManifestLocation.write(manifest, "UTF-8");
                 }
             }
+
+            // Delete export options file
+            exportArchiveOptionsPlist.delete();
         }
 
         return true;

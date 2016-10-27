@@ -94,6 +94,21 @@
                     <f:entry title="${%Manifest Plist URL}" field="ipaManifestPlistUrl" description="The base URL to use to create a Manifest Plist. If omitted no Manifest Plist will be generated">
                         <f:textbox />
                     </f:entry>
+
+                    <f:entry title="${%Team ID}" field="exportTeamId" description="The Developer Portal team to use for this export. Defaults to the team used to build the archive.">
+                        <f:textbox />
+                    </f:entry>
+
+                    <f:entry name="exportMethod" title="${%Describes how Xcode should export the archive}" field="exportMethod">
+                        <select name="exportMethod">
+                            <f:option value="development" selected="${instance.exportMethod == 'development'}">development</f:option>
+                            <f:option value="ad-hoc" selected="${instance.exportMethod == 'ad-hoc'}">ad-hoc</f:option>
+                            <f:option value="app-store" selected="${instance.exportMethod == 'app-store'}">app-store</f:option>
+                            <f:option value="package" selected="${instance.exportMethod == 'package'}">package</f:option>
+                            <f:option value="enterprise" selected="${instance.exportMethod == 'enterprise'}">enterprise</f:option>
+                            <f:option value="developer-id" selected="${instance.exportMethod == 'developer-id'}">developer-id</f:option>
+                        </select>
+                    </f:entry>
                 </f:optionalBlock>
             </f:entry>
 		</f:advanced>
